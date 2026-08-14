@@ -38,7 +38,8 @@ if(reelForm){
         finalCells[column]=[...track.children].slice(-3).map(cell=>cell.cloneNode(true));drumNode.replaceChildren(track);
         if(reduced||!track.animate)return Promise.resolve();
         const distance=(ids.length-3)*(box.height+gap);
-        return track.animate([{transform:'translateY(0)'},{transform:`translateY(-${distance}px)`}],{duration:2850+column*310,easing:'cubic-bezier(.12,.72,.12,1)',fill:'forwards'}).finished;
+        const visualDuration=2600+Math.floor(Math.random()*1801)+column*70;
+        return track.animate([{transform:'translateY(0)'},{transform:`translateY(-${distance}px)`}],{duration:visualDuration,easing:'cubic-bezier(.12,.72,.12,1)',fill:'forwards'}).finished;
       });
       await Promise.all(animations);
       drums.forEach((drumNode,column)=>{drumNode.replaceChildren(...finalCells[column]);drumNode.style.removeProperty('height');drumNode.style.removeProperty('overflow')});

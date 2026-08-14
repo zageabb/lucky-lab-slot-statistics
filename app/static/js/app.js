@@ -15,34 +15,34 @@ if(reelForm){
     if(reelForm.dataset.submitting==='1')return;
     event.preventDefault();reelForm.dataset.submitting='1';
     const button=reelForm.querySelector('button');button.disabled=true;button.querySelector('span').textContent='ROLLING';
-    const reels=document.querySelector('#reels');reels?.classList.add('rolling');
+    const reels=document.querySelector('#reels');reels?.classList.add('rolling','true-strip');
     const symbols=['clover','harp','horseshoe','rainbow','emerald','crown','gold_pot'];
     const cells=[...(reels?.querySelectorAll('.symbol')||[])];
     const drums=[...(reels?.querySelectorAll('.reel-drum')||[])];
     drums.forEach(drum=>drum.classList.remove('reel-stopped'));
     cells.forEach(cell=>{cell.classList.remove('winning-cell','reel-stopped');cell.querySelector('.win-label')?.remove()});
-    let tick=0;
-    const drum=setInterval(()=>{tick++;cells.forEach(cell=>{
-      const column=Number(cell.dataset.column),row=[...cell.parentElement.children].indexOf(cell);
-      if(cell.classList.contains('reel-stopped'))return;
-      const previous=cell.dataset.rollingSymbol;
-      let id=symbols[Math.floor(Math.random()*symbols.length)];
-      if(id===previous)id=symbols[(symbols.indexOf(id)+1+row+column)%symbols.length];
-      cell.dataset.rollingSymbol=id;setCell(cell,id);
-    })},reduced?50:145);
     let result;
     try{
       const response=await fetch(reelForm.action,{method:'POST',body:new FormData(reelForm),headers:{'X-Requested-With':'LuckyLabDrums'}});
       result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Spin could not be completed');
-      await new Promise(resolve=>setTimeout(resolve,reduced?50:2350));
-      for(let column=0;column<5;column++){
-        const drumNode=drums.find(item=>Number(item.dataset.reel)===column);
-        const columnCells=cells.filter(cell=>Number(cell.dataset.column)===column);
-        columnCells.forEach((cell,row)=>{setCell(cell,result.board[row][column]);cell.classList.add('reel-stopped')});
-        drumNode?.classList.add('reel-stopped');
-        await new Promise(resolve=>setTimeout(resolve,reduced?10:285));
-      }
-      clearInterval(drum);reels.classList.remove('rolling');
+      const finalCells=[];
+      const animations=drums.map((drumNode,column)=>{
+        const originals=[...drumNode.querySelectorAll(':scope > .symbol')];
+        const box=originals[0].getBoundingClientRect(),gap=parseFloat(getComputedStyle(drumNode).rowGap)||3;
+        drumNode.style.height=`${box.height*3+gap*2}px`;drumNode.style.overflow='hidden';
+        const ids=originals.map(cell=>cell.querySelector('img').src.match(/([^/]+)\.svg$/)?.[1]||'clover');
+        for(let index=0;index<18+column*3;index++)ids.push(symbols[Math.floor(Math.random()*symbols.length)]);
+        result.board.forEach(row=>ids.push(row[column]));
+        const track=document.createElement('div');track.className='spin-track';track.style.gap=`${gap}px`;
+        ids.forEach((id,index)=>{const cell=originals[index%3].cloneNode(true);cell.classList.remove('winning-cell','reel-stopped');cell.querySelector('.win-label')?.remove();setCell(cell,id);track.append(cell)});
+        finalCells[column]=[...track.children].slice(-3).map(cell=>cell.cloneNode(true));drumNode.replaceChildren(track);
+        if(reduced||!track.animate)return Promise.resolve();
+        const distance=(ids.length-3)*(box.height+gap);
+        return track.animate([{transform:'translateY(0)'},{transform:`translateY(-${distance}px)`}],{duration:2850+column*310,easing:'cubic-bezier(.12,.72,.12,1)',fill:'forwards'}).finished;
+      });
+      await Promise.all(animations);
+      drums.forEach((drumNode,column)=>{drumNode.replaceChildren(...finalCells[column]);drumNode.style.removeProperty('height');drumNode.style.removeProperty('overflow')});
+      reels.classList.remove('rolling','true-strip');
       const winners=result.line_awards.filter(line=>line.payout_units>0);
       winners.forEach(line=>line.rows.slice(0,line.matches).forEach((row,column)=>{const cell=drums[column].children[row];cell.classList.add('winning-cell');const tag=document.createElement('b');tag.className='win-label';tag.textContent='WIN';cell.append(tag)}));
       const readouts=document.querySelectorAll('.game-readouts strong');readouts[0].textContent=credit(result.balance_units);readouts[1].textContent=credit(result.payout_units);
@@ -52,7 +52,7 @@ if(reelForm){
       if(winners.length){const list=document.createElement('div');list.className='winning-lines';winners.forEach(line=>{const item=document.createElement('span');item.textContent=`Line ${line.line} · ${line.matches} ${labels[line.symbols[0]]} · ${line.multiplier}× · ${credit(line.payout_units)}`;list.append(item)});panel.append(list)}
       const audit=document.createElement('a');audit.href=result.audit_url;audit.textContent='Full calculation';panel.append(audit);
       reelForm.querySelector('[name=request_token]').value=newRequestToken();
-    }catch(error){clearInterval(drum);reels?.classList.remove('rolling');const panel=document.querySelector('.game-result');panel.textContent=error.message}
+    }catch(error){reels?.classList.remove('rolling','true-strip');const panel=document.querySelector('.game-result');panel.textContent=error.message}
     finally{button.disabled=false;button.querySelector('span').textContent='SPIN';reelForm.dataset.submitting='0'}
   });
 }

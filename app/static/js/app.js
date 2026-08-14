@@ -19,12 +19,15 @@ if(reelForm){
     const symbols=['clover','harp','horseshoe','rainbow','emerald','crown','gold_pot'];
     const cells=[...(reels?.querySelectorAll('.symbol')||[])];
     const drums=[...(reels?.querySelectorAll('.reel-drum')||[])];
+    const assetBase=cells[0].querySelector('img').src.replace(/[^/]+\.svg$/,'');
+    const assetsReady=Promise.all(symbols.map(id=>new Promise(resolve=>{const image=new Image();image.onload=image.onerror=resolve;image.src=assetBase+id+'.svg'})));
     drums.forEach(drum=>drum.classList.remove('reel-stopped'));
     cells.forEach(cell=>{cell.classList.remove('winning-cell','reel-stopped');cell.querySelector('.win-label')?.remove()});
     let result;
     try{
       const response=await fetch(reelForm.action,{method:'POST',body:new FormData(reelForm),headers:{'X-Requested-With':'LuckyLabDrums'}});
       result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Spin could not be completed');
+      await assetsReady;
       const finalCells=[];
       const animations=drums.map((drumNode,column)=>{
         const originals=[...drumNode.querySelectorAll(':scope > .symbol')];
@@ -32,12 +35,14 @@ if(reelForm){
         drumNode.style.height=`${box.height*3+gap*2}px`;drumNode.style.overflow='hidden';
         const ids=originals.map(cell=>cell.querySelector('img').src.match(/([^/]+)\.svg$/)?.[1]||'clover');
         for(let index=0;index<18+column*3;index++)ids.push(symbols[Math.floor(Math.random()*symbols.length)]);
+        const landingIndex=ids.length;
         result.board.forEach(row=>ids.push(row[column]));
+        for(let buffer=0;buffer<6;buffer++)ids.push(symbols[(buffer+column*2)%symbols.length]);
         const track=document.createElement('div');track.className='spin-track';track.style.gap=`${gap}px`;
         ids.forEach((id,index)=>{const cell=originals[index%3].cloneNode(true);cell.classList.remove('winning-cell','reel-stopped');cell.querySelector('.win-label')?.remove();setCell(cell,id);track.append(cell)});
-        finalCells[column]=[...track.children].slice(-3).map(cell=>cell.cloneNode(true));drumNode.replaceChildren(track);
+        finalCells[column]=[...track.children].slice(landingIndex,landingIndex+3).map(cell=>cell.cloneNode(true));drumNode.replaceChildren(track);
         if(reduced||!track.animate)return Promise.resolve();
-        const distance=(ids.length-3)*(box.height+gap);
+        const distance=landingIndex*(box.height+gap);
         const visualDuration=2600+Math.floor(Math.random()*1801)+column*70;
         return track.animate([{transform:'translateY(0)'},{transform:`translateY(-${distance}px)`}],{duration:visualDuration,easing:'cubic-bezier(.12,.72,.12,1)',fill:'forwards'}).finished;
       });

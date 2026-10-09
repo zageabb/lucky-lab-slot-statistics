@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -18,6 +19,8 @@ def sqlite_settings(connection, _):
 
 def create_app(config: dict | None = None) -> Flask:
     app = Flask(__name__)
+    # Only trust the isolated UDA/Caddy forwarding hop.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_prefix=1)
     app.config.from_object(Config)
     if config: app.config.update(config)
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)

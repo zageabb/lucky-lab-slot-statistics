@@ -1,6 +1,6 @@
 """UDA-prefix and LAN regression using the isolated test database."""
 def test_uda_mount_and_lan(client):
-    local = client.get("/")
+    local = client.get("/model-manual")
     assert local.status_code == 200
     assert '<base href="/">' in local.get_data(as_text=True)
     headers = {

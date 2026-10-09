@@ -8,7 +8,7 @@ def test_uda_mount_and_lan(client):
         "X-Forwarded-Host": "tanyaanne.ddns.net",
         "X-Forwarded-Proto": "https",
     }
-    prefixed = client.get("/", headers=headers)
+    prefixed = client.get("/model-manual", headers=headers)
     assert prefixed.status_code == 200
     html = prefixed.get_data(as_text=True)
     assert '<base href="/apps/lucky-lab/">' in html

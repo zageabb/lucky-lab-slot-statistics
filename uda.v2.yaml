@@ -26,6 +26,7 @@ containers:
         kind: bind
         source: server-data
         preserve_data: true
+        owner: lucky-lab
         backup_policy: manual-review
         restore_policy: manual-recovery
     health:

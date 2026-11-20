@@ -23,7 +23,7 @@ class TestDbLifecycle(unittest.TestCase):
         for command in ("flask", "gunicorn"):
             executable = self.bin / command
             executable.write_text(
-                "#!/bin/sh\nprintf '%s\\n' '" + command + " '$*' >> \"$TEST_LOG\"\n"
+                "#!/bin/sh\necho " + command + " \"$*\" >> \"$TEST_LOG\"\n"
             )
             executable.chmod(0o700)
         self.env = {

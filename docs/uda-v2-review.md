@@ -17,12 +17,17 @@ Verified against the repository's `compose.yaml`, `Dockerfile`,
   never copy the secret value.
 - App has no internal login, according to README. UDA/Caddy authorization
   must protect all public routes. LAN port exposure must be reconciled.
-- **CRITICAL:** current `docker-entrypoint.sh` runs `flask db upgrade`
-  and `flask main seed` on every container start, before starting Gunicorn.
-  V2 cannot safely activate this unmodified image just because the manifest
-  is valid. Separate migration and seeding into explicit, versioned,
-  approved operations. Verify backups and rollback/recovery; do not infer
-  either command's idempotency.
+- **Source-level startup split prepared (not production-activated):**
+  `docker-entrypoint.sh` now starts Gunicorn **without** invoking
+  `flask db upgrade` or `flask main seed`. Both are separated into
+  `scripts/lucky-lab-db-maintenance.sh upgrade|seed`, which refuses
+  execution unless explicit approval, verified-backup and database-target
+  confirmation flags are supplied and `DATABASE_URL` is set.
+  These flags are safety interlocks, NOT authentic approval or evidence
+  that a backup/restore has been tested. Never infer migration/seed
+  idempotency or run on live data without a reviewed change ticket.
+  Dockerfile packages the maintenance script separately. Existing
+  production images and data are unchanged.
 - SQLite writes require explicit `database-write` capability; currently
   disabled by default and subject to production owner review.
 
@@ -31,12 +36,31 @@ Verified against the repository's `compose.yaml`, `Dockerfile`,
 - [ ] Validate manifest against current canonical V2 schema and semantic checker.
 - [ ] Inspect effective host container config, Docker volumes, ports,
       Caddy routes and UDA registry read-only via Desktop.
-- [ ] Design safe migration/seeding split before attempting any container start.
+- [x] Separate source-level web entrypoint from DB upgrade/seed; preserve
+      production activation hold pending database-owner confirmation.
+- [ ] Verify genuine external approval and backup/restore evidence; startup
+      interlock flags alone cannot establish authorisation.
 - [ ] Verify live database path, backup ownership and restore procedure.
 - [ ] Confirm required secret names, runtime effective health, UDA group
       and route with the authorised operator.
 - [ ] Execute isolated build/test with disposable data and verify source SHA.
 - [ ] Obtain separate production and database-write owner approvals.
 
-Do not change Compose, runtime entrypoint, data volumes or live application
-in this draft. No deployment or recovery is authorised.
+The draft source entrypoint and Docker packaging have changed to remove
+implicit database actions. Do not change live Compose, deployed entrypoints,
+data volumes or running application as part of this review. No deployment,
+database action or recovery is authorised.
+
+## Independent regression evidence (20 November 2026)
+
+Five no-network, no-database subprocess tests in
+`tests/test_uda_db_lifecycle.py` were reconstructed from the committed
+shell scripts and run in a disposable directory using fake `gunicorn`/
+`flask` executables: **5 passed, 0 failed**; `sh -n` of the two scripts
+also passed. The real Flask/SQLite migration, Docker image build,
+production host and persistent data were NOT exercised.
+
+Production readiness still requires the real image to be built/tested in
+an isolated staging container with fresh disposable SQLite, explicit
+versioned migration plans, a *verified* backup/restore, documented data
+owner sign-off and read-only reconciliation of existing volume/ports/auth.

@@ -9,7 +9,8 @@ COPY pyproject.toml ./
 COPY app ./app
 COPY migrations ./migrations
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN pip install --no-cache-dir . && chmod +x /app/docker-entrypoint.sh
+COPY scripts/lucky-lab-db-maintenance.sh ./scripts/lucky-lab-db-maintenance.sh
+RUN pip install --no-cache-dir . && chmod +x /app/docker-entrypoint.sh /app/scripts/lucky-lab-db-maintenance.sh
 
 EXPOSE 5020
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

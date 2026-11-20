@@ -1,0 +1,80 @@
+# DEV-020 review-only candidate. Docker entrypoint currently auto-runs
+# Flask migrations and seed; this MUST be separated and independently
+# approved before any production activation.
+schema_version: 2
+application:
+  name: lucky-lab
+  kind: web
+  display_name: Lucky Lab
+  group: Personal
+source:
+  repository: zageabb/lucky-lab-slot-statistics
+  branch: main
+containers:
+  - name: lucky-lab
+    build:
+      context: .
+      dockerfile: Dockerfile
+      provenance: pinned-source-commit
+    ports:
+      - host_port: 5020
+        container_port: 5020
+        bind: 127.0.0.1
+    volumes:
+      - name: lucky-data
+        mount_path: /data
+        kind: bind
+        source: server-data
+        preserve_data: true
+        owner: lucky-lab
+        backup_policy: manual-review
+        restore_policy: manual-recovery
+    health:
+      type: http
+      path: /health
+    restart: unless-stopped
+    environment_refs:
+      - SECRET_KEY
+      - DATABASE_URL
+health:
+  aggregate: all-required
+  required_services: [lucky-lab]
+  on_optional_failure: degraded
+proxy:
+  enabled: true
+  upstream: lucky-lab
+  canonical_path: /apps/lucky-lab/
+  authentication: uda
+environment:
+  required:
+    - SECRET_KEY
+    - DATABASE_URL
+  definitions:
+    - name: SECRET_KEY
+      source: secret
+      phase: runtime
+    - name: DATABASE_URL
+      source: config
+      phase: runtime
+databases:
+  - name: lucky-db
+    engine: sqlite
+    connection_refs: [DATABASE_URL]
+    external: false
+    backup: required
+    backup_verification: required
+    write_access: requires-capability
+capabilities:
+  - name: lucky-db-write
+    kind: database-write
+    target: lucky-db
+    approval: explicit
+    enabled_by_default: false
+deployment:
+  strategy: containers
+  auto_update: false
+  rollback: false
+  github_reporting: false
+  approval: explicit
+lifecycle:
+  owner: lucky-lab
